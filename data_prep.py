@@ -1,7 +1,7 @@
 import os
 import torch
 from torchvision import datasets, transforms
-from torch.utils.data import DataLoader, DistributedSampler
+from torch.utils.data import DataLoader
 
 def build_loader(config):
     # Unified Preprocessing
@@ -24,20 +24,12 @@ def build_loader(config):
     train_dataset = datasets.ImageFolder(os.path.join(config.DATA.DATA_PATH, "train"), transform=train_transform)
     eval_dataset = datasets.ImageFolder(os.path.join(config.DATA.DATA_PATH, "validation"), transform=eval_transform)
 
-    if dist_is_initialized():
-        train_sampler = DistributedSampler(train_dataset)
-        eval_sampler = DistributedSampler(eval_dataset, shuffle=False)
-    else:
-        train_sampler = None
-        eval_sampler = None
-
     train_loader = DataLoader(
         train_dataset, 
         batch_size=config.DATA.BATCH_SIZE, 
-        shuffle=(train_sampler is None),
+        shuffle=True,
         num_workers=config.DATA.NUM_WORKERS, 
-        pin_memory=config.DATA.PIN_MEMORY, 
-        sampler=train_sampler
+        pin_memory=config.DATA.PIN_MEMORY,
     )
     
     eval_loader = DataLoader(
@@ -45,11 +37,7 @@ def build_loader(config):
         batch_size=config.DATA.BATCH_SIZE, 
         shuffle=False,
         num_workers=config.DATA.NUM_WORKERS, 
-        pin_memory=config.DATA.PIN_MEMORY, 
-        sampler=eval_sampler
+        pin_memory=config.DATA.PIN_MEMORY,
     )
 
     return train_dataset, eval_dataset, train_loader, eval_loader
-
-def dist_is_initialized():
-    return torch.distributed.is_available() and torch.distributed.is_initialized()

@@ -3,7 +3,6 @@ def get_config():
         'MODEL': {
             'NAME': 'as_mlp_tiny',      # Default: None
             'NUM_CLASSES': 5,           # Default: 5
-            'RESUME': None,             # Default: None
             'DROP_PATH_RATE': 0.1,      # Default: 0.1
             'LABEL_SMOOTHING': 0.1,     # Default: 0.1
         },
@@ -26,5 +25,4 @@ def get_config():
             'SCHED': None,              # Default: 'cosine'
         },
         'OUTPUT': None,                 # Default: 'outputs'
-        'EVAL_MODE': None,              # Default: False
     }

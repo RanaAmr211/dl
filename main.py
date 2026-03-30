@@ -4,17 +4,17 @@ import datetime
 import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
-import torch.distributed as dist
-from timm.loss import LabelSmoothingCrossEntropy, SoftTargetCrossEntropy
+import json
+import csv
 from timm.utils import accuracy, AverageMeter
 from timm.optim import create_optimizer
 from timm.scheduler import create_scheduler
 import argparse
 
 # Local imports
-from models import build_model
-from data import build_loader
-from utils import load_checkpoint, save_checkpoint, get_grad_norm, reduce_tensor, create_logger
+from models import build_model, get_model_config
+from data_prep import build_loader
+from utils import create_logger
 
 # Base Configuration with all possible hyperparameters
 BASE_CONFIG = {
@@ -27,7 +27,6 @@ BASE_CONFIG = {
     'MODEL': {
         'NAME': None, # Must be specified by model config
         'NUM_CLASSES': 5,
-        'RESUME': None,
         'DROP_PATH_RATE': 0.1,
         'LABEL_SMOOTHING': 0.1,
     },
@@ -44,8 +43,6 @@ BASE_CONFIG = {
         'SCHED': 'cosine',
     },
     'OUTPUT': 'outputs',
-    'LOCAL_RANK': 0,
-    'EVAL_MODE': False,
     'AMP_ENABLE': True,
 }
 
@@ -85,9 +82,6 @@ def main(config, logger):
     optimizer = create_optimizer(argparse_namespace(opt=config.TRAIN.OPT, lr=config.TRAIN.BASE_LR, weight_decay=config.TRAIN.WEIGHT_DECAY), model)
     scaler = torch.cuda.amp.GradScaler(enabled=config.AMP_ENABLE)
     
-    if dist.is_initialized():
-        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[config.LOCAL_RANK], broadcast_buffers=False)
-    
     # Scheduler setup
     lr_scheduler, _ = create_scheduler(argparse_namespace(
         sched=config.TRAIN.SCHED, 
@@ -98,29 +92,28 @@ def main(config, logger):
         cooldown_epochs=0
     ), optimizer)
 
+    # Setup metrics logging to file
+    log_file = os.path.join(config.OUTPUT, 'metrics.csv')
+    with open(log_file, 'w', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(['epoch', 'train_loss', 'train_acc', 'val_loss', 'val_acc'])
+
     max_accuracy = 0.0
-    if config.MODEL.RESUME:
-        max_accuracy = load_checkpoint(config, model, optimizer, lr_scheduler, logger)
-
-    if config.EVAL_MODE:
-        acc1, acc5, loss = validate(config, data_loader_val, model, logger)
-        logger.info(f"Accuracy on val set: {acc1:.1f}%")
-        return
-
     logger.info("Start training")
     start_time = time.time()
     for epoch in range(config.TRAIN.START_EPOCH, config.TRAIN.EPOCHS):
-        if dist.is_initialized():
-            data_loader_train.sampler.set_epoch(epoch)
-
-        train_one_epoch(config, model, data_loader_train, optimizer, epoch, lr_scheduler, scaler, logger)
+        train_loss, train_acc = train_one_epoch(config, model, data_loader_train, optimizer, epoch, lr_scheduler, scaler, logger)
         
-        if config.LOCAL_RANK == 0 and (epoch % 10 == 0 or epoch == (config.TRAIN.EPOCHS - 1)):
-            save_checkpoint(config, epoch, model, max_accuracy, optimizer, lr_scheduler, logger)
+        val_acc, val_loss = validate(config, data_loader_val, model, logger)
+        
+        logger.info(f"Epoch {epoch}: Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.2f}%, Val Loss: {val_loss:.4f}, Val Acc: {val_acc:.2f}%")
+        
+        # Save metrics
+        with open(log_file, 'a', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow([epoch, train_loss, train_acc, val_loss, val_acc])
 
-        acc1, acc5, loss = validate(config, data_loader_val, model, logger)
-        logger.info(f"Accuracy on val set: {acc1:.1f}%")
-        max_accuracy = max(max_accuracy, acc1)
+        max_accuracy = max(max_accuracy, val_acc)
         logger.info(f'Max accuracy: {max_accuracy:.2f}%')
 
     total_time = time.time() - start_time
@@ -132,10 +125,9 @@ def train_one_epoch(config, model, data_loader, optimizer, epoch, lr_scheduler, 
     optimizer.zero_grad()
     
     num_steps = len(data_loader)
-    batch_time = AverageMeter()
     loss_meter = AverageMeter()
+    acc_meter = AverageMeter()
     
-    start = time.time()
     for idx, (samples, targets) in enumerate(data_loader):
         samples, targets = samples.cuda(non_blocking=True), targets.cuda(non_blocking=True)
 
@@ -153,13 +145,15 @@ def train_one_epoch(config, model, data_loader, optimizer, epoch, lr_scheduler, 
         
         lr_scheduler.step_update(epoch * num_steps + idx)
         
+        acc1, _ = accuracy(outputs, targets, topk=(1, 5))
         loss_meter.update(loss.item(), targets.size(0))
-        batch_time.update(time.time() - start)
-        start = time.time()
+        acc_meter.update(acc1.item(), targets.size(0))
 
-        if idx % 20 == 0 and config.LOCAL_RANK == 0:
+        if idx % 20 == 0:
             lr = optimizer.param_groups[0]['lr']
-            logger.info(f'Epoch: [{epoch}][{idx}/{num_steps}] lr {lr:.6f} loss {loss_meter.avg:.4f}')
+            logger.info(f'Epoch: [{epoch}][{idx}/{num_steps}] lr {lr:.6f} loss {loss_meter.avg:.4f} acc {acc_meter.avg:.2f}%')
+
+    return loss_meter.avg, acc_meter.avg
 
 @torch.no_grad()
 def validate(config, data_loader, model, logger=None):
@@ -172,13 +166,10 @@ def validate(config, data_loader, model, logger=None):
         loss = torch.nn.CrossEntropyLoss()(output, target)
         acc1, _ = accuracy(output, target, topk=(1, 5))
 
-        if dist.is_initialized():
-            acc1, loss = reduce_tensor(acc1), reduce_tensor(loss)
-
         loss_meter.update(loss.item(), target.size(0))
         acc1_meter.update(acc1.item(), target.size(0))
 
-    return acc1_meter.avg, 0, loss_meter.avg
+    return acc1_meter.avg, loss_meter.avg
 
 class argparse_namespace:
     def __init__(self, **kwargs):
@@ -187,14 +178,6 @@ class argparse_namespace:
 def parse_option():
     parser = argparse.ArgumentParser('Unified Training Script', add_help=False)
     parser.add_argument('--model_to_run', type=str, required=True, help='Model name to run (e.g., as_mlp_tiny, deit_tiny, resnext50_local)')
-    # Add back any other general arguments that were in the original parse_option if needed, or stick to this minimum.
-    # For now, let's keep it simple and just add the model_to_run.
-    
-    # Placeholder for other common args if needed, or remove them entirely
-    parser.add_argument('--local_rank', type=int, default=0, help='local rank for DistributedDataParallel')
-    parser.add_argument('--eval_mode', action='store_true', help='Perform evaluation only')
-    parser.add_argument('--resume', type=str, default=None, help='Path to checkpoint for resuming training/evaluation')
-
     args = parser.parse_args()
     return args
 
@@ -202,38 +185,15 @@ if __name__ == '__main__':
     args = parse_option()
     MODEL_TO_RUN = args.model_to_run
     
-    # Configure config.LOCAL_RANK and config.EVAL_MODE based on args
-    LOCAL_RANK = args.local_rank
-    EVAL_MODE = args.eval_mode
-    RESUME = args.resume
-
-    # Now load model-specific config
-    if MODEL_TO_RUN == 'as_mlp_tiny':
-        from AS_MLP.config import get_config
-    elif MODEL_TO_RUN == 'deit_tiny':
-        from DeiT.config import get_config
-    elif MODEL_TO_RUN == 'resnext50_local':
-        from ResNeXt.config import get_config
-    else:
-        raise ValueError(f"Unknown model: {MODEL_TO_RUN}")
-    
-    model_config_data = get_config()
-    
-    # Update config defaults from command line arguments
-    model_config_data['MODEL']['RESUME'] = RESUME
-    model_config_data['LOCAL_RANK'] = LOCAL_RANK
-    model_config_data['EVAL_MODE'] = EVAL_MODE
-
+    # Load model-specific config via models helper
+    model_config_data = get_model_config(MODEL_TO_RUN)
     config = Config(model_config_data)
     
-    if 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:
-        dist.init_process_group(backend='nccl', init_method='env://')
-    
-    torch.cuda.set_device(config.LOCAL_RANK)
-    seed = 42 + config.LOCAL_RANK
+    torch.cuda.set_device(0)
+    seed = 42
     torch.manual_seed(seed)
     np.random.seed(seed)
     cudnn.benchmark = True
 
-    logger = create_logger(output_dir=config.OUTPUT, dist_rank=config.LOCAL_RANK, name=config.MODEL.NAME)
+    logger = create_logger(output_dir=config.OUTPUT, name=config.MODEL.NAME)
     main(config, logger)
