@@ -10,7 +10,7 @@ FOLDERS_TO_KEEP = [
     "risotto",
     "spaghetti_carbonara",
     "pancakes"
-]  # your desired categories
+]
 
 OUTPUT_DIR = "./food_subset"
 
