@@ -27,7 +27,7 @@ def create_logger(output_dir, name):
     console_handler.setFormatter(logging.Formatter(fmt))
     logger.addHandler(console_handler)
 
-    file_handler = logging.FileHandler(os.path.join(output_dir, 'log.txt'), mode='a')
+    file_handler = logging.FileHandler(os.path.join(output_dir, f'{name}_log.txt'), mode='a')
     file_handler.setFormatter(logging.Formatter(fmt))
     logger.addHandler(file_handler)
 

@@ -10,6 +10,7 @@ BASE_CONFIG = {
     },
     'MODEL': {
         'NAME': None, # Must be specified by model config
+        'TAG': None,  # Architecture type (CNN, MLP, Transformer)
         'NUM_CLASSES': 5,
         'DROP_PATH_RATE': 0.1,
         'LABEL_SMOOTHING': 0.1,
@@ -55,8 +56,7 @@ class Config:
         self.MODEL = type('', (), self.MODEL)()
         self.TRAIN = type('', (), self.TRAIN)()
         
-        # Specific output dir
-        self.OUTPUT = os.path.join(self.OUTPUT, self.MODEL.NAME)
+        # Ensure output dir exists
         os.makedirs(self.OUTPUT, exist_ok=True)
 
     def defrost(self): pass
