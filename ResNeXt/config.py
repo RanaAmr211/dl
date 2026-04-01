@@ -4,7 +4,7 @@ def get_config():
             'NAME': 'resnext50_local',  # Default: None
             'TAG': 'CNN',
             'NUM_CLASSES': 5,           # Default: 5
-            'DROP_PATH_RATE': 0.2,      # Increased from 0.1 for more regularization
+            'DROP_PATH_RATE': 0.15,     # Reduced from 0.2 for less regularization
             'LABEL_SMOOTHING': 0.1,     # Default: 0.1
 
             # ResNeXt specific parameters
@@ -24,9 +24,9 @@ def get_config():
         },
         'TRAIN': {
             'START_EPOCH': None,        # Default: 0
-            'EPOCHS': 100,              # Unified with other models for comparison
+            'EPOCHS': 100,              # Reduced to 100 for faster iteration
             'BASE_LR': 5e-4,            # Reduced from 0.1 for better generalization
-            'WEIGHT_DECAY': 1e-3,       # Increased from 5e-4 for more regularization
+            'WEIGHT_DECAY': 5e-4,       # Reduced from 1e-3 for less regularization
             'CLIP_GRAD': 1.0,           # Added gradient clipping
             'WARMUP_EPOCHS': 5,         # Added warmup from 0
             'WARMUP_LR': 1e-6,          # Warmup learning rate

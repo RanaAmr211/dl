@@ -4,15 +4,15 @@ from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
 
 def build_loader(config):
-    # Enhanced augmentation to reduce overfitting
+    # Moderate augmentation - reduced from heavy regularization
     train_transform = transforms.Compose([
         transforms.RandomResizedCrop(224, scale=(0.08, 1.0), interpolation=transforms.InterpolationMode.BICUBIC),
         transforms.RandomHorizontalFlip(),
-        transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.1),
+        transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.05),
         transforms.TrivialAugmentWide(),
         transforms.ToTensor(),
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
-        transforms.RandomErasing(p=0.25)
+        transforms.RandomErasing(p=0.1)
     ])
 
     eval_transform = transforms.Compose([
