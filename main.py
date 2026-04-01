@@ -103,7 +103,7 @@ def train_one_epoch(config, model, data_loader, optimizer, epoch, lr_scheduler, 
 
         with torch.amp.autocast('cuda', enabled=config.AMP_ENABLE):
             outputs = model(samples)
-            loss = torch.nn.CrossEntropyLoss()(outputs, targets)
+            loss = torch.nn.CrossEntropyLoss(label_smoothing=config.MODEL.LABEL_SMOOTHING)(outputs, targets)
 
         scaler.scale(loss).backward()
         if config.TRAIN.CLIP_GRAD:

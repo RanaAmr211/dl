@@ -4,12 +4,11 @@ from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
 
 def build_loader(config):
-    # Unified Preprocessing
+    # Unified Preprocessing with stronger augmentation
     train_transform = transforms.Compose([
-        transforms.Resize(256, interpolation=transforms.InterpolationMode.BICUBIC),
-        transforms.RandomCrop(224),
+        transforms.RandomResizedCrop(224, scale=(0.08, 1.0), interpolation=transforms.InterpolationMode.BICUBIC),
         transforms.RandomHorizontalFlip(),
-        transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
+        transforms.TrivialAugmentWide(),
         transforms.ToTensor(),
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
     ])

@@ -26,7 +26,7 @@ def get_config():
             'START_EPOCH': None,        # Default: 0
             'EPOCHS': None,             # Default: 300
             'BASE_LR': 0.1,             # Default: 5e-4
-            'WEIGHT_DECAY': 1e-4,       # Default: 0.05
+            'WEIGHT_DECAY': 5e-4,       # Default: 0.05
             'CLIP_GRAD': None,          # Default: 5.0
             'WARMUP_EPOCHS': 0,         # Default: 5
             'WARMUP_LR': None,          # Default: 1e-6
