@@ -4,22 +4,21 @@ from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
 
 def build_loader(config):
-    # Moderate augmentation - reduced from heavy regularization
+
     train_transform = transforms.Compose([
-        transforms.RandomResizedCrop(224, scale=(0.08, 1.0), interpolation=transforms.InterpolationMode.BICUBIC),
-        transforms.RandomHorizontalFlip(),
-        transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.05),
-        transforms.TrivialAugmentWide(),
-        transforms.ToTensor(),
-        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
-        transforms.RandomErasing(p=0.1)
+    transforms.Resize(256),
+    transforms.RandomCrop(224),          
+    transforms.RandomHorizontalFlip(),   
+    transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2), 
+    transforms.ToTensor(),
+    transforms.Normalize([0.485,0.456,0.406],[0.229,0.224,0.225])
     ])
 
     eval_transform = transforms.Compose([
-        transforms.Resize(256, interpolation=transforms.InterpolationMode.BICUBIC),
-        transforms.CenterCrop(224),
-        transforms.ToTensor(),
-        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+    transforms.Resize(256),
+    transforms.CenterCrop(224),
+    transforms.ToTensor(),
+    transforms.Normalize([0.485,0.456,0.406],[0.229,0.224,0.225])
     ])
 
     train_dataset = datasets.ImageFolder(os.path.join(config.DATA.DATA_PATH, "train"), transform=train_transform)
