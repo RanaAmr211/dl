@@ -1,8 +1,8 @@
 def get_config():
     return {
         'MODEL': {
-            'NAME': 'convmlp_s',
-            'TAG': 'MLP',
+            'NAME': 'pvt_v2_b0',
+            'TAG': 'TRANSFORMER',
             'NUM_CLASSES': 5,
             'DROP_PATH_RATE': 0.1,
             'LABEL_SMOOTHING': 0.1,
@@ -16,7 +16,7 @@ def get_config():
         'TRAIN': {
             'START_EPOCH': None,
             'EPOCHS': 100,
-            'BASE_LR': 1e-3,
+            'BASE_LR': 5e-4,
             'WEIGHT_DECAY': 1e-4,
             'CLIP_GRAD': 5.0,
             'WARMUP_EPOCHS': 10,

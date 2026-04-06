@@ -56,6 +56,10 @@ def main(config, logger):
         from DenseNet.early_stopping import DenseNetEarlyStopping
         early_stopping = DenseNetEarlyStopping(patience=10, verbose=True)
         logger.info("Early stopping enabled for DenseNet-121")
+    elif config.MODEL.NAME == 'pvt_v2_b0':
+        from PVT.early_stopping import PVTEarlyStopping
+        early_stopping = PVTEarlyStopping(patience=10, verbose=True)
+        logger.info("Early stopping enabled for PVT-Tiny")
 
     max_accuracy = 0.0
     best_targets = None

@@ -3,6 +3,8 @@ from DeiT.DeiT import local_deit_tiny_patch16_224
 from ResNeXt.ResNeXt import resnext50_32x4d
 from ConvMLP.ConvMLP import convmlp_s
 from DenseNet.DenseNet import densenet121
+from PVT.pvt import pvt_tiny 
+
 # Add imports for other models as needed
 
 import torch
@@ -20,6 +22,8 @@ def get_model_config(model_name):
         from DenseNet.config import get_config
     elif model_name == 'convmlp_s':
         from ConvMLP.config import get_config
+    elif model_name == 'pvt_v2_b0':
+        from PVT.config import get_config
     else:
         raise ValueError(f"Unknown model: {model_name}")
     return get_config()
@@ -42,6 +46,8 @@ def build_model(config):
         return densenet121(**model_kwargs)
     elif model_name == 'convmlp_s':
         return convmlp_s(**model_kwargs)
+    elif model_name == 'pvt_v2_b0':
+        return pvt_tiny(**model_kwargs)
 
 
     # continue defining other models
