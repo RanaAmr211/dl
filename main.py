@@ -51,6 +51,11 @@ def main(config, logger):
     with open(log_file, 'w', newline='') as f:
         writer = csv.writer(f)
         writer.writerow(['epoch', 'train_loss', 'train_acc', 'val_loss', 'val_acc', 'val_f1', 'val_precision', 'val_recall'])
+        early_stopping = None
+    if config.MODEL.NAME == 'densenet121':
+        from DenseNet.early_stopping import DenseNetEarlyStopping
+        early_stopping = DenseNetEarlyStopping(patience=10, verbose=True)
+        logger.info("Early stopping enabled for DenseNet-121")
 
     max_accuracy = 0.0
     best_targets = None
@@ -78,6 +83,13 @@ def main(config, logger):
             logger.info(f'Best performance updated at epoch {epoch} with accuracy: {max_accuracy:.2f}%')
             
         logger.info(f'Max accuracy: {max_accuracy:.2f}%')
+        
+        
+        # Early Stopping Check ONLY for DenseNet ← NEW
+        if early_stopping is not None:
+            if early_stopping(val_acc, epoch):
+                logger.info(f"Early stopping triggered at epoch {epoch}")
+                break  # ← EXIT BUT CONTINUE TO SAVE EVERYTHING
 
     # Save confusion matrix for the best model
     if best_targets is not None:
